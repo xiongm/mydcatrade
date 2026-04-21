@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 
@@ -13,10 +14,23 @@ class ParquetDataSource:
     def __init__(self, root_dir: Path | str = Path("data/parquet")) -> None:
         self.root_dir = Path(root_dir)
 
-    def load_bars(self, symbols: tuple[str, ...]) -> dict[str, pd.DataFrame]:
+    def load_bars(
+        self, 
+        symbols: tuple[str, ...], 
+        start_date: Optional[str] = None, 
+        end_date: Optional[str] = None
+    ) -> dict[str, pd.DataFrame]:
         frames = {}
         for symbol in symbols:
             path = self.root_dir / f"{symbol}.parquet"
-            frames[symbol] = normalize_symbol_frame(pd.read_parquet(path))
+            df = normalize_symbol_frame(pd.read_parquet(path))
+            
+            # Filter by date if provided
+            if start_date:
+                df = df[df.index >= start_date]
+            if end_date:
+                df = df[df.index <= end_date]
+                
+            frames[symbol] = df
         validate_ohlcv_frames(frames)
         return frames

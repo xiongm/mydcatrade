@@ -1,12 +1,16 @@
 from .csv_source import CsvDataSource
 from .parquet_source import ParquetDataSource
 from .yfinance_source import YFinanceDataSource
+from .hybrid_source import HybridDataSource
+from .akshare_source import AkShareDataSource
 
 
 DATA_SOURCE_FACTORIES = {
     "yfinance": YFinanceDataSource,
     "csv": CsvDataSource,
     "parquet": ParquetDataSource,
+    "hybrid": HybridDataSource,
+    "akshare": AkShareDataSource,
 }
 
 

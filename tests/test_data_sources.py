@@ -1,10 +1,10 @@
 import pandas as pd
 import pytest
 
-from mean_reversion.data_sources.base import normalize_symbol_frame, validate_ohlcv_frames
-from mean_reversion.data_sources.csv_source import CsvDataSource
-from mean_reversion.data_sources.parquet_source import ParquetDataSource
-from mean_reversion.data_sources.yfinance_source import YFinanceDataSource
+from dca_backtest.data_sources.base import normalize_symbol_frame, validate_ohlcv_frames
+from dca_backtest.data_sources.csv_source import CsvDataSource
+from dca_backtest.data_sources.parquet_source import ParquetDataSource
+from dca_backtest.data_sources.yfinance_source import YFinanceDataSource
 
 
 def test_normalize_symbol_frame_standardizes_columns_and_index():
@@ -49,7 +49,8 @@ def test_yfinance_source_normalizes_downloaded_frames(monkeypatch):
     )
 
     source = YFinanceDataSource()
-    monkeypatch.setattr(source, "_download_symbol", lambda symbol: raw)
+    # Mock download to return our raw frame
+    monkeypatch.setattr(source, "_download_symbol", lambda symbol, start_date=None, end_date=None: raw)
 
     frames = source.load_bars(("SPY",))
 

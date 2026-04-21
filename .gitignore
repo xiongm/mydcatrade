@@ -5,3 +5,13 @@ __pycache__/
 *.pyo
 *.egg-info/
 .worktrees/
+.DS_Store
+
+# Data and Results (keep directories but ignore content)
+data/csv/*.csv
+data/parquet/*.parquet
+results/*/
+!results/index.html
+
+# Local system files
+.superpowers/

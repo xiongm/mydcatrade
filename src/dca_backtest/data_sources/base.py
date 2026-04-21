@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, Optional
 
 import pandas as pd
 
@@ -11,7 +11,12 @@ REQUIRED_OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 class DataSource(Protocol):
     name: str
 
-    def load_bars(self, symbols: tuple[str, ...]) -> dict[str, pd.DataFrame]:
+    def load_bars(
+        self, 
+        symbols: tuple[str, ...], 
+        start_date: Optional[str] = None, 
+        end_date: Optional[str] = None
+    ) -> dict[str, pd.DataFrame]:
         ...
 
 
