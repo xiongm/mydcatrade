@@ -23,3 +23,11 @@ class PortfolioState:
     cash: float = 0.0
     shares: Dict[str, float] = field(default_factory=dict)
     trades: List[Trade] = field(default_factory=list)
+
+@dataclass
+class RunContext:
+    plan: Plan
+    data_source: str
+    symbols: List[str]
+    date_range: str
+    commit_hash: str

@@ -17,11 +17,8 @@ def is_contribution_day(dt: datetime, frequency: str, start_date: Optional[datet
     
     if frequency == 'biweekly':
         if start_date is None:
-            # If no start_date, default to every Wednesday for safety
             return True
         
-        # Calculate full weeks since start_date (which must be a Wednesday)
-        # We ensure we're comparing Wednesdays
         days_since = (dt.date() - start_date.date()).days
         weeks_since = days_since // 7
         return weeks_since % 2 == 0
