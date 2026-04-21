@@ -1,12 +1,27 @@
-# Portfolio Backtest System
+# 📈 Global Portfolio DCA Backtest System
 
-A dual-purpose backtesting system for long-term Dollar Cost Averaging (DCA) and tactical Mean Reversion strategies.
+A professional-grade, multi-market backtesting engine for Dollar Cost Averaging (DCA) and long-term accumulation strategies. Compare your steady contributions against Lump Sum and Windfall scenarios with rich, interactive reporting.
+
+## ✨ Key Features
+
+*   **Global Market Support:** Backtest **US Equities**, **Crypto** (via yfinance), and **Chinese A-shares/Funds** (via AkShare).
+*   **Intelligent Benchmarking:** Automatically compares your DCA plan against a **Lump Sum** or **Windfall** (installment-based) baseline to calculate your **DCA Alpha**.
+*   **Robust Reporting:** Generates interactive HTML reports with dual-series charts (Portfolio Value vs. Cost Basis) and detailed monthly statements.
+*   **Offline-First:** Built-in `dca-download` tool to cache market data locally for fast, offline backtesting.
+*   **Advanced Logic:** Handles fractional shares, automatic data alignment across markets, and market-specific adjustments (HFQ for A-shares).
+
+---
 
 ## 🚀 Quick Start
 
 ### 1. Setup Environment
-This project uses `uv` for fast dependency management.
+This project uses `uv` for high-performance dependency management.
+
 ```bash
+# Clone and enter the repo
+git clone <your-repo-url>
+cd mydcatrade
+
 # Create and activate venv
 uv venv --prompt "mydcatrade"
 source .venv/bin/activate
@@ -16,64 +31,58 @@ uv pip install -e .
 uv pip install pyarrow
 ```
 
-### 2. Run your first DCA Backtest
+### 2. Run your first Backtest
 ```bash
-dca-backtest --symbols SPY --amount 100 --frequency weekly
+dca-backtest --assets SPY:500 QQQ:500 --frequency monthly
 ```
 
 ---
 
-## 📈 DCA Backtest (Accumulation)
+## 📈 Usage Examples
 
-The DCA engine supports multi-asset portfolios with fixed contribution schedules on Wednesdays.
-
-### Examples
-
-#### A. Multi-asset with Grouped Allocation (Preferred)
-Define your portfolio and dollar amounts in a single, safe argument.
+### A. Multi-Market Portfolio
+Mix US Stocks, Crypto, and Chinese Funds in a single plan.
 ```bash
-dca-backtest --assets SPY:600 QQQ:400 --frequency monthly
+dca-backtest --assets VTI:500 BTC-USD:200 009504:1000 --currency RMB
 ```
 
-#### C. Crypto Backtest
-Test Bitcoin and Ethereum DCA strategies using the `-USD` suffix.
+### B. "Windfall" Comparison
+Should you invest your savings all at once or over 6 months? Use `--lump-sum-span`.
 ```bash
-dca-backtest --assets BTC-USD:500 ETH-USD:300 --frequency weekly
+dca-backtest --assets VOO:1000 --lump-sum-span 6 --start-date 2022-01-01
 ```
 
-#### D. Specific Date Range
-Test how a DCA plan performed during a specific period.
+### C. Chinese A-Shares & Funds
+The system auto-detects 6-digit codes and routes them to AkShare with back-adjustment.
 ```bash
-dca-backtest --assets AAPL:200 --frequency biweekly --start-date 2022-01-01 --end-date 2023-12-31
+# China Merchants Bank (Stock)
+dca-backtest --assets 600036:1000 --currency RMB
+
+# Gold ETF Feeder (Fund)
+dca-backtest --assets 009504:1000 --currency RMB
 ```
 
-#### D. Using Local CSV Data
-If you have data in `data/csv/MYSTOCK.csv`.
-```bash
-dca-backtest --symbols MYSTOCK --amount 100 --data-source csv
-```
+---
 
-### Options Reference
+## 🛠️ Tools & Commands
+
+### `dca-backtest`
+The main execution engine.
+
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--symbols` | List of tickers to buy | `SPY` |
-| `--amount` | Total $ to invest per cycle | `1000.0` |
-| `--amounts` | Exact $ per symbol (overrides `--amount`) | None |
-| `--weights` | Target % per symbol | Equal |
+| `--assets` | List of `SYMBOL:AMOUNT` pairs | `SPY:1000` |
 | `--frequency` | `weekly`, `biweekly`, or `monthly` | `monthly` |
-| `--start-date` | Start date (YYYY-MM-DD) | ~5 years ago |
+| `--currency` | Report symbol: `USD` or `RMB` | `USD` |
+| `--lump-sum-span` | Spread benchmark over N installments | `1` |
+| `--start-date` | Start date (YYYY-MM-DD) | Last 5 Years |
 | `--end-date` | End date (YYYY-MM-DD) | Today |
-| `--data-source`| `yfinance`, `csv`, or `parquet` | `yfinance` |
 
----
-
-## 🤖 Mean Reversion Backtest (Tactical)
-
-The repository also includes the original mean reversion engine for signal-driven trading.
-
+### `dca-download`
+Cache data locally to enable offline mode and faster runs.
 ```bash
-# Run the default mean reversion strategy
-mean-reversion-backtest --strategy mean_reversion_v1
+# Cache 10 years of data
+dca-download SPY AAPL BTC-USD 600036
 ```
 
 ---
@@ -82,14 +91,23 @@ mean-reversion-backtest --strategy mean_reversion_v1
 
 Every run generates a structured results bundle in the `results/` directory.
 
-1.  **Global Portal:** Open `results/index.html` in your browser to see a leaderboard of all your DCA plans and Mean Reversion strategies.
-2.  **Detailed Reports:** Each run has its own folder containing:
-    *   `report.html`: Visual summary with equity and drawdown charts.
-    *   `summary.md`: Human-readable performance metrics.
-    *   `trades.csv`: Full ledger of every purchase made.
-    *   `equity_curve.csv`: Daily portfolio valuation.
+1.  **Global Portal:** Open `results/index.html` to see a leaderboard of all your backtests.
+2.  **Detailed Reports:** Open `results/<plan_name>/latest/report.html` for:
+    *   **7-Metric Hero Dashboard:** ROI, CAGR, Max Drawdown, and DCA Alpha.
+    *   **Growth Charts:** Interactive Portfolio Value vs. Cost Basis.
+    *   **Asset Breakdown:** Target vs. Actual weights (Drift analysis).
+    *   **Monthly Statements:** Historical ledger of every contribution.
 
 ```bash
-# Open the results dashboard
+# Open the global dashboard
 open results/index.html
+```
+
+---
+
+## 🧪 Development & Testing
+
+```bash
+# Run the core test suite
+pytest tests/ -v
 ```
