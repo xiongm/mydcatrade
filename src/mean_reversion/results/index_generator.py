@@ -25,7 +25,12 @@ def update_global_index(root_dir: Path) -> None:
                         bundle_summary_path = bucket_dir / "bundles" / data["bundle_fingerprint"] / "summary.json"
                         if bundle_summary_path.exists():
                             summary = json.loads(bundle_summary_path.read_text())
-                            data["metrics"] = summary.get("base", {})
+                            # Mean reversion summary has "base", DCA does not
+                            if "base" in summary:
+                                data["metrics"] = summary.get("base", {})
+                            else:
+                                data["metrics"] = summary
+                                
                             data["market_full"] = bucket_dir.name
                             data["report_path"] = f"{strategy_dir.name}/{bucket_dir.name}/bundles/{data['bundle_fingerprint']}/report.html"
                             history_records.append(data)
@@ -39,14 +44,18 @@ def update_global_index(root_dir: Path) -> None:
                     bundle_summary_path = bucket_dir / "bundles" / l_data["bundle_fingerprint"] / "summary.json"
                     if bundle_summary_path.exists():
                         summary = json.loads(bundle_summary_path.read_text())
-                        l_data["metrics"] = summary.get("base", {})
+                        if "base" in summary:
+                            l_data["metrics"] = summary.get("base", {})
+                        else:
+                            l_data["metrics"] = summary
+                            
                         l_data["market_full"] = bucket_dir.name
                         l_data["report_path"] = f"{strategy_dir.name}/{bucket_dir.name}/latest/report.html"
                         latest_results.append(l_data)
                 except Exception: continue
 
     # Sort data
-    recent_activity = sorted(history_records, key=lambda x: x["timestamp"], reverse=True)[:5]
+    recent_activity = sorted(history_records, key=lambda x: x["timestamp"], reverse=True)[:10]
     leaderboard = sorted(latest_results, key=lambda x: x["metrics"].get("total_return", 0), reverse=True)
 
     # Generate HTML
@@ -62,10 +71,11 @@ def _generate_html(recent, leaderboard):
     recent_rows = ""
     for i, r in enumerate(recent):
         bg = "background: #fffde7;" if i == 0 else ""
+        name = r.get("strategy") or r.get("plan") or "Unknown"
         recent_rows += f"""
         <tr style="border-bottom: 1px solid #eee; {bg}">
             <td style="padding: 10px;">{r['timestamp']}</td>
-            <td style="padding: 10px;"><b>{r['strategy']}</b></td>
+            <td style="padding: 10px;"><b>{name}</b></td>
             <td style="padding: 10px; font-size: 0.85em; color: #666;">{r['market_full']}</td>
             <td style="padding: 10px; color: {'#2e7d32' if r['metrics'].get('total_return', 0) >= 0 else '#c62828'}; font-weight: bold;">{_format_pct(r['metrics'].get('total_return', 0))}</td>
             <td style="padding: 10px;"><a href="{r['report_path']}" style="color: #1976d2; text-decoration: none; font-weight: bold;">View &rarr;</a></td>
@@ -73,9 +83,10 @@ def _generate_html(recent, leaderboard):
 
     leaderboard_rows = ""
     for r in leaderboard:
+        name = r.get("strategy") or r.get("plan") or "Unknown"
         leaderboard_rows += f"""
         <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px;"><b>{r['strategy']}</b></td>
+            <td style="padding: 10px;"><b>{name}</b></td>
             <td style="padding: 10px;"><span style="color: #666;">{r['market_full']}</span></td>
             <td style="padding: 10px; color: {'#2e7d32' if r['metrics'].get('total_return', 0) >= 0 else '#c62828'}; font-weight: bold;">{_format_pct(r['metrics'].get('total_return', 0))}</td>
             <td style="padding: 10px;">{_format_pct(r['metrics'].get('win_rate', 0))}</td>
@@ -108,7 +119,7 @@ def _generate_html(recent, leaderboard):
             <span style="font-size: 0.8em; color: #888;">Chronological Log</span>
         </div>
         <table>
-            <thead><tr><th>Timestamp</th><th>Strategy</th><th>Config</th><th>Return</th><th>Action</th></tr></thead>
+            <thead><tr><th>Timestamp</th><th>Name</th><th>Config</th><th>Return</th><th>Action</th></tr></thead>
             <tbody>{recent_rows}</tbody>
         </table>
 
@@ -117,10 +128,9 @@ def _generate_html(recent, leaderboard):
             <span style="font-size: 0.8em; color: #888;">Ranked by Total Return</span>
         </div>
         <table>
-            <thead><tr><th>Strategy</th><th>Market/Source</th><th>Return</th><th>Win Rate</th><th>Max DD</th><th>Report</th></tr></thead>
+            <thead><tr><th>Name</th><th>Market/Source</th><th>Return</th><th>Win Rate</th><th>Max DD</th><th>Report</th></tr></thead>
             <tbody>{leaderboard_rows}</tbody>
         </table>
     </div>
 </body>
 </html>"""
-
