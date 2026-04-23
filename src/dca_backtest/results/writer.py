@@ -161,9 +161,11 @@ def _build_report_html(context: RunContext, summary: dict, charts: dict) -> str:
     for m in sorted_metrics:
         roi = float(m.get('roi_pct', 0.0))
         roi_color = "#059669" if roi >= 0 else "#dc2626"
+        
         asset_rows += f"""
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 12px; font-weight: bold;">{m['symbol']}</td>
+          <td style="padding: 12px; font-size: 0.9em; color: #64748b;">{m.get('name', '')}</td>
           <td style="padding: 12px; text-align: right;">{m['target_weight']:.1%}</td>
           <td style="padding: 12px; text-align: right;">{curr}{m['basis']:,.2f}</td>
           <td style="padding: 12px; text-align: right;">{curr}{m['final_value']:,.2f}</td>
@@ -189,6 +191,20 @@ def _build_report_html(context: RunContext, summary: dict, charts: dict) -> str:
           <td style="padding: 12px;">{curr}{m['value']:,.2f}</td>
           {comp_cell}
           <td style="padding: 12px; color: {m_roi_color}; font-weight: bold;">{m_roi:+.2%}</td>
+        </tr>"""
+
+    # Build Purchase Log Rows
+    log_rows = ""
+    purchase_log = summary.get("purchase_log", [])
+    for t in purchase_log:
+        log_rows += f"""
+        <tr style="border-bottom: 1px solid #f1f5f9; text-align: right;">
+          <td style="padding: 10px; text-align: left; font-weight: bold;">{t['date']}</td>
+          <td style="padding: 10px; text-align: left;">{t['symbol']}</td>
+          <td style="padding: 10px; text-align: left; font-size: 0.85em; color: #64748b;">{t.get('name', '')}</td>
+          <td style="padding: 10px;">{curr}{t['price']:,.2f}</td>
+          <td style="padding: 10px;">{t['shares']:.4f}</td>
+          <td style="padding: 10px; font-weight: bold;">{curr}{t['amount']:,.2f}</td>
         </tr>"""
 
     # Comparison Calculations
@@ -264,7 +280,7 @@ def _build_report_html(context: RunContext, summary: dict, charts: dict) -> str:
     .row-1 {{ grid-template-columns: repeat(4, 1fr); }}
     .row-2 {{ grid-template-columns: repeat(3, 1fr); }}
     .card {{ background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; text-align: center; }}
-    .card-label {{ font-size: 0.7em; color: #64748b; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; letter-spacing: 0.05em; }}
+    .card-label {{ font-size: 0.75em; color: #64748b; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; letter-spacing: 0.05em; }}
     .card-value {{ font-size: 1.25em; font-weight: bold; color: #1e293b; }}
     .section-card {{ background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; margin-bottom: 24px; }}
     .section-header {{ font-weight: bold; margin-bottom: 16px; color: #475569; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }}
@@ -318,6 +334,7 @@ def _build_report_html(context: RunContext, summary: dict, charts: dict) -> str:
         <thead>
           <tr>
             <th style="text-align: left;">Symbol</th>
+            <th style="text-align: left;">Name</th>
             <th>Target %</th>
             <th>Cost Basis</th>
             <th>Final Value</th>
@@ -353,6 +370,25 @@ def _build_report_html(context: RunContext, summary: dict, charts: dict) -> str:
         </thead>
         <tbody>
           {monthly_rows}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header">Recent Purchase Log</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align: left;">Date</th>
+            <th style="text-align: left;">Symbol</th>
+            <th style="text-align: left;">Name</th>
+            <th>Price</th>
+            <th>Shares</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {log_rows}
         </tbody>
       </table>
     </div>

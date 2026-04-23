@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict
 
 import pandas as pd
 import yfinance as yf
@@ -14,6 +14,7 @@ class YFinanceDataSource:
 
     def __init__(self, lookback_years: int = 10) -> None:
         self.lookback_years = lookback_years
+        self.symbol_names: Dict[str, str] = {}
 
     def load_bars(
         self, 
@@ -23,6 +24,13 @@ class YFinanceDataSource:
     ) -> dict[str, pd.DataFrame]:
         frames: dict[str, pd.DataFrame] = {}
         for symbol in symbols:
+            # Try to fetch name metadata
+            try:
+                ticker = yf.Ticker(symbol)
+                name = ticker.info.get('shortName') or ticker.info.get('longName')
+                if name: self.symbol_names[symbol] = name
+            except Exception: pass
+
             raw = self._download_symbol(symbol, start_date, end_date)
             if raw.empty:
                 raise ValueError(f"No data returned for {symbol}")

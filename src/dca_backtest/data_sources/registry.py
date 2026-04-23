@@ -3,6 +3,7 @@ from .parquet_source import ParquetDataSource
 from .yfinance_source import YFinanceDataSource
 from .hybrid_source import HybridDataSource
 from .akshare_source import AkShareDataSource
+from .efinance_source import EFinanceDataSource
 
 
 DATA_SOURCE_FACTORIES = {
@@ -11,6 +12,7 @@ DATA_SOURCE_FACTORIES = {
     "parquet": ParquetDataSource,
     "hybrid": HybridDataSource,
     "akshare": AkShareDataSource,
+    "efinance": EFinanceDataSource,
 }
 
 

@@ -19,12 +19,22 @@ def parse_asset_pair(pair_str: str) -> tuple[str, float]:
     except ValueError:
         raise argparse.ArgumentTypeError(f"Invalid asset pair '{pair_str}'. Expected format: SYMBOL:AMOUNT")
 
+def parse_alias_pair(pair_str: str) -> tuple[str, str]:
+    """Parses a SYMBOL:NAME string into (symbol, name)."""
+    try:
+        symbol, name = pair_str.split(':', 1)
+        return symbol.upper(), name
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid alias pair '{pair_str}'. Expected format: SYMBOL:NAME")
+
 def main():
     parser = argparse.ArgumentParser(description="DCA Backtest CLI")
     
-    # Grouped argument
+    # Grouped arguments
     parser.add_argument("--assets", nargs="+", type=parse_asset_pair, 
                         help="List of assets and their amounts in SYMBOL:AMOUNT format (e.g. SPY:500 QQQ:300)")
+    parser.add_argument("--aliases", nargs="+", type=parse_alias_pair,
+                        help="Human-readable names for tickers in SYMBOL:NAME format (e.g. 002594:BYD)")
     
     # Comparison arguments
     parser.add_argument("--lump-sum-span", type=int, default=1, 
@@ -107,12 +117,21 @@ def main():
     for s, df in raw_data.items():
         data[s] = df.reindex(union_idx).ffill()
     
+    # 2.2 Aggregate Names/Aliases
+    final_names = {}
+    if hasattr(source, "symbol_names"):
+        final_names.update(source.symbol_names)
+    
+    if args.aliases:
+        for sym, name in args.aliases:
+            final_names[sym] = name
+            
     # 3. Run Baseline Backtest
     print("Running primary DCA backtest...")
     state = run_backtest(plan, data)
     total_capital = sum(t.amount for t in state.trades)
     
-    # 4. Run Comparison Backtest (MANDATORY)
+    # 4. Run Comparison Backtest
     span = max(1, args.lump_sum_span)
     comparison_type = "Lump Sum" if span == 1 else f"Windfall DCA ({span} installments)"
     print(f"Running comparison {comparison_type} with total capital {curr_sym}{total_capital:,.2f}...")
@@ -180,7 +199,9 @@ def main():
         s_basis = sum(t.amount for t in state.trades if t.symbol == s)
         s_val = sum(t.shares for t in state.trades if t.symbol == s) * data[s].loc[final_dt, "close"]
         symbol_metrics.append({
-            "symbol": s, "target_weight": final_weights[s], "basis": s_basis,
+            "symbol": s, 
+            "name": final_names.get(s, s),
+            "target_weight": final_weights[s], "basis": s_basis,
             "final_value": s_val, "roi_pct": (s_val - s_basis) / s_basis if s_basis > 0 else 0,
             "actual_weight": s_val / final_val if final_val > 0 else 0
         })
@@ -193,6 +214,16 @@ def main():
         "basis": float(row['basis']), "value": float(row['equity']), "roi_pct": float(row['roi_pct']),
         "comp_value": float(row['comp_equity'])
     } for dt, row in monthly_df.iterrows()]
+
+    # Add Purchase Log (last 100 trades for visibility)
+    metrics["purchase_log"] = [{
+        "date": t.date.strftime("%Y-%m-%d"),
+        "symbol": t.symbol,
+        "name": final_names.get(t.symbol, t.symbol),
+        "price": t.price,
+        "shares": t.shares,
+        "amount": t.amount
+    } for t in state.trades[-100:]] # Show latest 100 trades
     
     # 7. Write Results
     print("Writing results bundle...")

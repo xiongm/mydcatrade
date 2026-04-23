@@ -72,6 +72,7 @@ The main execution engine.
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--assets` | List of `SYMBOL:AMOUNT` pairs | `SPY:1000` |
+| `--aliases` | `SYMBOL:NAME` pairs for friendly display | None |
 | `--frequency` | `weekly`, `biweekly`, or `monthly` | `monthly` |
 | `--currency` | Report symbol: `USD` or `RMB` | `USD` |
 | `--lump-sum-span` | Spread benchmark over N installments | `1` |
