@@ -11,9 +11,7 @@ dependencies = [
   "pandas>=2.2",
   "yfinance>=0.2.54",
   "akshare>=1.18.56",
-  "requests",
-  "PyYAML>=6.0.1",
-  "scipy>=1.11"
+  "requests"
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,43 @@
+{
+  "broad_indexes": {
+    "US": {
+      "SPY": {"name": "S&P 500 ETF", "role": "U.S. large-cap broad market"},
+      "QQQ": {"name": "Nasdaq 100 ETF", "role": "U.S. growth / tech-heavy benchmark"},
+      "IWM": {"name": "Russell 2000 ETF", "role": "U.S. small-cap benchmark"}
+    },
+    "CN": {
+      "000300.SS": {"name": "CSI 300", "role": "China A-share large-cap broad market"},
+      "000905.SS": {"name": "CSI 500", "role": "China A-share mid-cap benchmark"},
+      "000852.SS": {"name": "CSI 1000", "role": "China A-share small/mid-cap benchmark"},
+      "000688.SS": {"name": "STAR 50", "role": "China hard-tech / growth benchmark"}
+    }
+  },
+  "sectors": {
+    "US": {
+      "TECH": {"name": "Information Technology", "tickers": ["MSFT", "NVDA", "AVGO"]},
+      "COMMUNICATION": {"name": "Communication Services", "tickers": ["GOOGL", "META", "NFLX"]},
+      "CONSUMER_DISCRETIONARY": {"name": "Consumer Discretionary", "tickers": ["AMZN", "TSLA", "HD"]},
+      "CONSUMER_STAPLES": {"name": "Consumer Staples", "tickers": ["WMT", "COST", "PG"]},
+      "FINANCIALS": {"name": "Financials", "tickers": ["JPM", "BRK-B", "V"]},
+      "HEALTHCARE": {"name": "Health Care", "tickers": ["LLY", "UNH", "JNJ"]},
+      "INDUSTRIALS": {"name": "Industrials", "tickers": ["GE", "CAT", "RTX"]},
+      "ENERGY": {"name": "Energy", "tickers": ["XOM", "CVX", "COP"]},
+      "MATERIALS": {"name": "Materials", "tickers": ["LIN", "SHW", "FCX"]},
+      "UTILITIES": {"name": "Utilities", "tickers": ["NEE", "SO", "DUK"]},
+      "REAL_ESTATE": {"name": "Real Estate", "tickers": ["PLD", "AMT", "EQIX"]}
+    },
+    "CN": {
+      "TECH": {"name": "Information Technology / Semis / Hardware", "tickers": ["688981.SS", "002475.SZ", "000725.SZ"]},
+      "COMMUNICATION": {"name": "Communication Services / Telecom", "tickers": ["600941.SS", "601728.SS", "600050.SS"]},
+      "CONSUMER_DISCRETIONARY": {"name": "Consumer Discretionary", "tickers": ["002594.SZ", "000333.SZ", "000651.SZ"]},
+      "CONSUMER_STAPLES": {"name": "Consumer Staples", "tickers": ["600519.SS", "000858.SZ", "600887.SS"]},
+      "FINANCIALS": {"name": "Financials", "tickers": ["600036.SS", "601318.SS", "600030.SS"]},
+      "HEALTHCARE": {"name": "Health Care", "tickers": ["600276.SS", "300760.SZ", "300015.SZ"]},
+      "INDUSTRIALS": {"name": "Industrials / Advanced Manufacturing", "tickers": ["300750.SZ", "300124.SZ", "601668.SS"]},
+      "ENERGY": {"name": "Energy", "tickers": ["601857.SS", "600028.SS", "600938.SS"]},
+      "MATERIALS": {"name": "Materials", "tickers": ["601899.SS", "600309.SS", "600019.SS"]},
+      "UTILITIES": {"name": "Utilities", "tickers": ["600900.SS", "600905.SS", "601985.SS"]},
+      "REAL_ESTATE": {"name": "Real Estate", "tickers": ["000002.SZ", "600048.SS", "001979.SZ"]}
+    }
+  }
+}
