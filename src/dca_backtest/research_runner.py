@@ -95,6 +95,7 @@ def run_research(config_path: str, output_dir: str, start_date: str, frequency: 
     source = get_data_source("hybrid")
     
     all_metrics = []
+    all_time_series = []
     
     for category, groups in [("broad_index", config.get("broad_indexes", {})), ("sector", config.get("sectors", {}))]:
         for market, market_groups in groups.items():
@@ -126,7 +127,34 @@ def run_research(config_path: str, output_dir: str, start_date: str, frequency: 
                 metrics, curve = extract_metrics(plan_name, market, category, group_name, state, data, union_idx, total_cap, fx_series)
                 all_metrics.append(metrics)
                 
+                # Format curve for time series
+                monthly_curve = curve.resample('ME').last()
+                for dt, row in monthly_curve.iterrows():
+                    inv_to_date = sum(t.amount for t in state.trades if t.date <= dt)
+                    usd_val = None
+                    if fx_series is not None and market == "CN":
+                        valid_fx = fx_series.reindex(monthly_curve.index, method='ffill')
+                        if pd.notna(valid_fx.loc[dt]) and valid_fx.loc[dt] > 0:
+                            usd_val = row["equity"] / float(valid_fx.loc[dt])
+                            
+                    dd = (row["equity"] - monthly_curve["equity"].cummax().loc[dt]) / monthly_curve["equity"].cummax().loc[dt] if monthly_curve["equity"].cummax().loc[dt] > 0 else 0
+                    
+                    all_time_series.append({
+                        "date": dt.strftime("%Y-%m-%d"),
+                        "strategy_id": plan_name,
+                        "market": market,
+                        "category": category,
+                        "sector_or_index": group_name,
+                        "contribution": sum(t.amount for t in state.trades if t.date.year == dt.year and t.date.month == dt.month),
+                        "cumulative_contribution": inv_to_date,
+                        "portfolio_value_local": row["equity"],
+                        "portfolio_value_usd_if_applicable": usd_val,
+                        "drawdown": dd
+                    })
+                
     df_metrics = pd.DataFrame(all_metrics)
+    pd.DataFrame(all_time_series).to_csv(out / "monthly_portfolio_values.csv", index=False)
+
     
     broad_df = df_metrics[df_metrics["category"] == "broad_index"]
     sector_df = df_metrics[df_metrics["category"] == "sector"]
@@ -162,6 +190,32 @@ def run_research(config_path: str, output_dir: str, start_date: str, frequency: 
         })
     comp_out_df = pd.DataFrame(comp_out)
     comp_out_df.to_csv(out / "us_vs_china_sector_comparison.csv", index=False)
+
+    # 4. Ranking Tables
+    best_broad = broad_df.loc[broad_df["ending_value_local"].idxmax()]
+    worst_broad = broad_df.loc[broad_df["ending_value_local"].idxmin()]
+    
+    best_us_sector = sector_df[sector_df["market"] == "US"].loc[sector_df[sector_df["market"] == "US"]["ending_value_local"].idxmax()]
+    worst_us_sector = sector_df[sector_df["market"] == "US"].loc[sector_df[sector_df["market"] == "US"]["ending_value_local"].idxmin()]
+    
+    best_cn_sector = sector_df[sector_df["market"] == "CN"].loc[sector_df[sector_df["market"] == "CN"]["ending_value_local"].idxmax()]
+    worst_cn_sector = sector_df[sector_df["market"] == "CN"].loc[sector_df[sector_df["market"] == "CN"]["ending_value_local"].idxmin()]
+    
+    comp_out_df["abs_performance_gap"] = comp_out_df["performance_gap_usd_pct"].abs()
+    largest_gap = comp_out_df.loc[comp_out_df["abs_performance_gap"].idxmax()]
+    smallest_gap = comp_out_df.loc[comp_out_df["abs_performance_gap"].idxmin()]
+    
+    rankings = [
+        {"metric": "Best broad index by ending value", "name": best_broad["name"], "value": best_broad["ending_value_local"]},
+        {"metric": "Worst broad index by ending value", "name": worst_broad["name"], "value": worst_broad["ending_value_local"]},
+        {"metric": "Best U.S. sector basket", "name": best_us_sector["name"], "value": best_us_sector["ending_value_local"]},
+        {"metric": "Worst U.S. sector basket", "name": worst_us_sector["name"], "value": worst_us_sector["ending_value_local"]},
+        {"metric": "Best China A-share sector basket", "name": best_cn_sector["name"], "value": best_cn_sector["ending_value_local"]},
+        {"metric": "Worst China A-share sector basket", "name": worst_cn_sector["name"], "value": worst_cn_sector["ending_value_local"]},
+        {"metric": "Largest U.S. vs China performance gap (USD %)", "name": largest_gap["sector"], "value": largest_gap["performance_gap_usd_pct"]},
+        {"metric": "Smallest U.S. vs China performance gap (USD %)", "name": smallest_gap["sector"], "value": smallest_gap["performance_gap_usd_pct"]}
+    ]
+    pd.DataFrame(rankings).to_csv(out / "rankings.csv", index=False)
 
     # Generate basic README
     readme_content = f"""# USA vs China A-share DCA Performance Backtest
