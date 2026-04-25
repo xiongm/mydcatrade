@@ -12,6 +12,8 @@ dependencies = [
   "yfinance>=0.2.54",
   "akshare>=1.18.56",
   "requests",
+  "PyYAML>=6.0.1",
+  "scipy>=1.11"
 ]
 
 [project.optional-dependencies]
@@ -22,6 +24,7 @@ dev = [
 [project.scripts]
 dca-backtest = "dca_backtest.cli:main"
 dca-download = "dca_backtest.download:main"
+dca-research = "dca_backtest.research_runner:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
