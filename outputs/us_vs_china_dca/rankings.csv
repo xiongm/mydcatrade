@@ -1,0 +1,9 @@
+metric,name,value
+Best broad index by ending value,QQQ,423703.6226291659
+Worst broad index by ending value,000300.SS,57422.65205906001
+Best U.S. sector basket,TECH,1948678.1829230161
+Worst U.S. sector basket,UTILITIES,217401.93355672908
+Best China A-share sector basket,MATERIALS,358509.58910542703
+Worst China A-share sector basket,REAL_ESTATE,52117.23618603806
+Largest U.S. vs China performance gap (USD %),TECH,47.014665294478256
+Smallest U.S. vs China performance gap (USD %),MATERIALS,4.0169285587098305
