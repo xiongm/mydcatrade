@@ -24,7 +24,6 @@ class YFinanceDataSource:
     ) -> dict[str, pd.DataFrame]:
         frames: dict[str, pd.DataFrame] = {}
         for symbol in symbols:
-            # Try to fetch name metadata
             try:
                 ticker = yf.Ticker(symbol)
                 name = ticker.info.get('shortName') or ticker.info.get('longName')
@@ -34,9 +33,30 @@ class YFinanceDataSource:
             raw = self._download_symbol(symbol, start_date, end_date)
             if raw.empty:
                 raise ValueError(f"No data returned for {symbol}")
-            frames[symbol] = normalize_symbol_frame(raw.reset_index() if "Date" not in raw.columns else raw)
+            frames[symbol] = normalize_symbol_frame(raw)
         validate_ohlcv_frames(frames)
         return frames
+
+    def load_dividends(
+        self,
+        symbols: tuple[str, ...],
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> dict[str, pd.Series]:
+        divs: dict[str, pd.Series] = {}
+        for symbol in symbols:
+            try:
+                ticker = yf.Ticker(symbol)
+                s = ticker.dividends
+                if not s.empty:
+                    # Normalize to midnight UTC-naive for matching with price index
+                    s.index = pd.to_datetime(s.index).tz_convert(None).normalize()
+                    if start_date: s = s[s.index >= start_date]
+                    if end_date: s = s[s.index <= end_date]
+                divs[symbol] = s
+            except Exception:
+                divs[symbol] = pd.Series(dtype=float)
+        return divs
 
     def _download_symbol(
         self, 

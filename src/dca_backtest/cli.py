@@ -12,227 +12,142 @@ from dca_backtest.data_sources.registry import get_data_source, list_data_source
 from dca_backtest.results.writer import write_results_bundle
 
 def parse_asset_pair(pair_str: str) -> tuple[str, float]:
-    """Parses a SYMBOL:AMOUNT string into (symbol, amount)."""
     try:
         symbol, amount = pair_str.split(':')
         return symbol.upper(), float(amount)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"Invalid asset pair '{pair_str}'. Expected format: SYMBOL:AMOUNT")
+    except ValueError: raise argparse.ArgumentTypeError(f"Invalid asset pair '{pair_str}'")
 
 def parse_alias_pair(pair_str: str) -> tuple[str, str]:
-    """Parses a SYMBOL:NAME string into (symbol, name)."""
     try:
         symbol, name = pair_str.split(':', 1)
         return symbol.upper(), name
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"Invalid alias pair '{pair_str}'. Expected format: SYMBOL:NAME")
+    except ValueError: raise argparse.ArgumentTypeError(f"Invalid alias pair '{pair_str}'")
 
 def main():
     parser = argparse.ArgumentParser(description="DCA Backtest CLI")
-    
-    # Grouped arguments
-    parser.add_argument("--assets", nargs="+", type=parse_asset_pair, 
-                        help="List of assets and their amounts in SYMBOL:AMOUNT format (e.g. SPY:500 QQQ:300)")
-    parser.add_argument("--aliases", nargs="+", type=parse_alias_pair,
-                        help="Human-readable names for tickers in SYMBOL:NAME format (e.g. 002594:BYD)")
-    
-    # Comparison arguments
-    parser.add_argument("--lump-sum-span", type=int, default=1, 
-                        help="Compare DCA to spreading the entire capital over the first N installments (default: 1 for Lump Sum)")
-    
-    # Currency argument
-    parser.add_argument("--currency", choices=["USD", "RMB"], default="USD", help="Currency symbol for the report (USD or RMB)")
-    
-    # Old individual arguments
-    parser.add_argument("--symbols", nargs="+", help="Symbols to include in the plan")
-    parser.add_argument("--weights", nargs="+", type=float, help="Target weights for symbols")
-    parser.add_argument("--amount", type=float, default=1000.0, help="Total contribution amount")
-    parser.add_argument("--amounts", nargs="+", type=float, help="Exact dollar amounts for each symbol per cycle")
-    
-    parser.add_argument("--frequency", choices=["weekly", "biweekly", "monthly"], default="monthly", help="Contribution frequency")
-    parser.add_argument("--data-source", default="hybrid", choices=list_data_source_names(), help="Data source to use")
-    parser.add_argument("--results-dir", default="results", help="Directory to store results")
-    parser.add_argument("--start-date", help="Start date (YYYY-MM-DD)")
-    parser.add_argument("--end-date", help="End date (YYYY-MM-DD)")
+    parser.add_argument("--assets", nargs="+", type=parse_asset_pair, help="SYMBOL:AMOUNT pairs")
+    parser.add_argument("--aliases", nargs="+", type=parse_alias_pair, help="SYMBOL:NAME pairs")
+    parser.add_argument("--lump-sum-span", type=int, default=1, help="Benchmark installments")
+    parser.add_argument("--currency", choices=["USD", "RMB"], default="USD")
+    parser.add_argument("--reinvest", action="store_true", help="Auto-reinvest dividends (DRIP)")
+    parser.add_argument("--frequency", choices=["weekly", "biweekly", "monthly"], default="monthly")
+    parser.add_argument("--data-source", default="hybrid", choices=list_data_source_names())
+    parser.add_argument("--results-dir", default="results")
+    parser.add_argument("--start-date", help="YYYY-MM-DD")
+    parser.add_argument("--end-date", help="YYYY-MM-DD")
     
     args = parser.parse_args()
-    
-    if not args.start_date:
-        args.start_date = (datetime.now() - timedelta(days=5*365)).strftime("%Y-%m-%d")
-    
-    # Currency Symbol for Terminal
+    if not args.start_date: args.start_date = (datetime.now() - timedelta(days=5*365)).strftime("%Y-%m-%d")
     curr_sym = "¥" if args.currency == "RMB" else "$"
     
-    # 1. Determine Weights and Total Amount
-    final_symbols = []
-    final_weights = {}
-    total_amount = 0.0
-
+    # 1. Setup Symbols and Weights
+    final_symbols = []; final_weights = {}; total_amount = 0.0
     if args.assets:
         for symbol, amount in args.assets:
-            final_symbols.append(symbol)
-            total_amount += amount
+            final_symbols.append(symbol); total_amount += amount
         for symbol, amount in args.assets:
             final_weights[symbol] = amount / total_amount
-    elif args.amounts:
-        if not args.symbols or len(args.symbols) != len(args.amounts):
-            print("Error: Number of symbols must match number of amounts.")
-            sys.exit(1)
-        final_symbols = [s.upper() for s in args.symbols]
-        total_amount = sum(args.amounts)
-        final_weights = {s: a / total_amount for s, a in zip(final_symbols, args.amounts)}
     else:
-        final_symbols = [s.upper() for s in (args.symbols or ["SPY"])]
-        if args.weights:
-            if len(final_symbols) != len(args.weights):
-                print("Error: Number of symbols must match number of weights.")
-                sys.exit(1)
-            total_weight = sum(args.weights)
-            final_weights = {s: w / total_weight for s, w in zip(final_symbols, args.weights)}
-        else:
-            final_weights = {s: 1.0 / len(final_symbols) for s in final_symbols}
-        total_amount = args.amount
+        print("Error: --assets required."); sys.exit(1)
     
-    plan = Plan(
-        name=f"dca_{'_'.join(final_symbols)}_{args.frequency}",
-        symbols=final_symbols,
-        weights=final_weights,
-        contribution_amount=total_amount,
-        frequency=args.frequency
-    )
+    plan = Plan(name=f"dca_{'_'.join(final_symbols)}_{args.frequency}", symbols=final_symbols,
+                weights=final_weights, contribution_amount=total_amount, frequency=args.frequency)
     
-    print(f"Starting DCA Backtest for Plan: {plan.name} ({args.currency})")
+    print(f"Starting DCA Backtest: {plan.name} ({args.currency}, Reinvest={args.reinvest})")
     
-    # 2. Load Data
+    # 2. Load Data (Prices + Dividends)
     source = get_data_source(args.data_source)
     print(f"Loading data from {args.data_source}...")
-    raw_data = source.load_bars(tuple(final_symbols), start_date=args.start_date, end_date=args.end_date)
+    data = source.load_bars(tuple(final_symbols), start_date=args.start_date, end_date=args.end_date)
+    divs = source.load_dividends(tuple(final_symbols), start_date=args.start_date, end_date=args.end_date)
     
-    # 2.1 Align Data
+    # Align
     union_idx = pd.Index([])
-    for df in raw_data.values():
-        union_idx = union_idx.union(df.index)
+    for df in data.values(): union_idx = union_idx.union(df.index)
+    aligned_data = {s: df.reindex(union_idx).ffill() for s, df in data.items()}
     
-    data = {}
-    for s, df in raw_data.items():
-        data[s] = df.reindex(union_idx).ffill()
-    
-    # 2.2 Aggregate Names/Aliases
+    # Names
     final_names = {}
-    if hasattr(source, "symbol_names"):
-        final_names.update(source.symbol_names)
-    
+    if hasattr(source, "symbol_names"): final_names.update(source.symbol_names)
     if args.aliases:
-        for sym, name in args.aliases:
-            final_names[sym] = name
+        for sym, name in args.aliases: final_names[sym] = name
             
-    # 3. Run Baseline Backtest
-    print("Running primary DCA backtest...")
-    state = run_backtest(plan, data)
+    # 3. Run Primary Backtest
+    print("Running primary DCA...")
+    state = run_backtest(plan, aligned_data, dividends=divs, reinvest_dividends=args.reinvest)
     total_capital = sum(t.amount for t in state.trades)
     
-    # 4. Run Comparison Backtest
+    # 4. Run Comparison (Windfall)
     span = max(1, args.lump_sum_span)
-    comparison_type = "Lump Sum" if span == 1 else f"Windfall DCA ({span} installments)"
-    print(f"Running comparison {comparison_type} with total capital {curr_sym}{total_capital:,.2f}...")
-    
-    comp_plan = Plan(
-        name="comparison",
-        symbols=final_symbols,
-        weights=final_weights,
-        contribution_amount=total_capital / span,
-        frequency=args.frequency
-    )
-    comparison_state = run_backtest(comp_plan, data, contribution_limit=span)
-    
-    trades_by_date = {}
-    for t in comparison_state.trades:
-        date_str = str(t.date.date())
-        if date_str not in trades_by_date:
-            trades_by_date[date_str] = {"date": date_str, "total": 0.0, "breakdown": []}
-        trades_by_date[date_str]["total"] += t.amount
-        trades_by_date[date_str]["breakdown"].append({
-            "symbol": t.symbol, "amount": t.amount, "price": t.price, "shares": t.shares
-        })
-    comparison_installments = list(trades_by_date.values())
+    comp_plan = Plan(name="comparison", symbols=final_symbols, weights=final_weights,
+                      contribution_amount=total_capital / span, frequency=args.frequency)
+    comp_state = run_backtest(comp_plan, aligned_data, dividends=divs, 
+                              contribution_limit=span, reinvest_dividends=args.reinvest)
 
     # 5. Calculate Daily Metrics
     print("Calculating daily metrics...")
-    dates = union_idx
-    
-    results_data = {"equity": [], "basis": [], "invested": [], "comp_equity": []}
+    results_data = {"equity": [], "basis": [], "invested": [], "comp_equity": [], "dividend_accum": []}
+    current_div_total = 0.0
 
-    for dt in dates:
-        today_invested = sum(t.amount for t in state.trades if t.date == dt)
-        results_data["invested"].append(today_invested)
+    for dt in union_idx:
+        # Check for dividends on this day
+        for s in final_symbols:
+             if s in divs and dt in divs[s].index:
+                 shares = sum(t.shares for t in state.trades if t.symbol == s and t.date < dt)
+                 current_div_total += shares * divs[s].loc[dt]
+        
+        results_data["dividend_accum"].append(current_div_total)
+        results_data["invested"].append(sum(t.amount for t in state.trades if t.date == dt))
         results_data["basis"].append(sum(t.amount for t in state.trades if t.date <= dt))
         
-        # Primary Equity
+        # Current Value
         shares = {s: sum(t.shares for t in state.trades if t.symbol == s and t.date <= dt) for s in final_symbols}
-        results_data["equity"].append(state.cash + sum(q * data[s].loc[dt, "close"] for s, q in shares.items()))
+        results_data["equity"].append(state.cash + sum(q * aligned_data[s].loc[dt, "close"] for s, q in shares.items()))
         
-        # Comparison Equity
-        comp_shares = {s: sum(t.shares for t in comparison_state.trades if t.symbol == s and t.date <= dt) for s in final_symbols}
-        results_data["comp_equity"].append(comparison_state.cash + sum(q * data[s].loc[dt, "close"] for s, q in comp_shares.items()))
+        comp_shares = {s: sum(t.shares for t in comp_state.trades if t.symbol == s and t.date <= dt) for s in final_symbols}
+        results_data["comp_equity"].append(comp_state.cash + sum(q * aligned_data[s].loc[dt, "close"] for s, q in comp_shares.items()))
             
-    curve_df = pd.DataFrame(results_data, index=dates)
+    curve_df = pd.DataFrame(results_data, index=union_idx)
     curve_df["roi_pct"] = (curve_df["equity"] - curve_df["basis"]) / curve_df["basis"]
     curve_df["roi_pct"] = curve_df["roi_pct"].fillna(0.0)
     
     metrics = calculate_metrics(curve_df["equity"], total_capital)
-    metrics["currency"] = args.currency
+    metrics.update({"currency": args.currency, "reinvest": args.reinvest, "total_dividends": float(state.dividend_income)})
     
     comp_final_val = curve_df["comp_equity"].iloc[-1]
     metrics["comparison"] = {
-        "type": comparison_type,
-        "final_value": comp_final_val,
-        "profit": comp_final_val - total_capital,
-        "roi_pct": (comp_final_val - total_capital) / total_capital if total_capital > 0 else 0.0,
-        "alpha": (curve_df["equity"].iloc[-1] - comp_final_val),
-        "installments": comparison_installments
+        "type": "Lump Sum" if span == 1 else f"Windfall ({span})",
+        "final_value": float(comp_final_val),
+        "alpha": float(curve_df["equity"].iloc[-1] - comp_final_val),
+        "installments": [] # (Can re-populate if needed)
     }
 
-    # 6. Breakdowns & Snapshots
+    # 6. Asset Attribution
     symbol_metrics = []
-    final_dt, final_val = dates[-1], curve_df["equity"].iloc[-1]
+    final_dt, final_val = union_idx[-1], curve_df["equity"].iloc[-1]
     for s in final_symbols:
         s_basis = sum(t.amount for t in state.trades if t.symbol == s)
-        s_val = sum(t.shares for t in state.trades if t.symbol == s) * data[s].loc[final_dt, "close"]
+        s_shares = sum(t.shares for t in state.trades if t.symbol == s)
+        s_val = s_shares * aligned_data[s].loc[final_dt, "close"]
+        s_divs = sum(t.shares * divs[s].loc[dt] for t in state.trades if t.symbol == s for dt in divs[s].index if dt > t.date) if s in divs else 0
         symbol_metrics.append({
-            "symbol": s, 
-            "name": final_names.get(s, s),
-            "target_weight": final_weights[s], "basis": s_basis,
-            "final_value": s_val, "roi_pct": (s_val - s_basis) / s_basis if s_basis > 0 else 0,
-            "actual_weight": s_val / final_val if final_val > 0 else 0
+            "symbol": s, "name": final_names.get(s, s), "basis": float(s_basis),
+            "final_value": float(s_val), "dividends": float(s_divs),
+            "target_weight": float(final_weights[s]), "actual_weight": float(s_val / final_val)
         })
     metrics["symbol_metrics"] = symbol_metrics
 
+    # 7. Monthly Table
     monthly_df = curve_df.resample('ME').last()
-    monthly_df['invested'] = curve_df['invested'].resample('ME').sum()
     metrics["monthly_metrics"] = [{
         "month": dt.strftime("%b %Y"), "invested": float(row['invested']),
         "basis": float(row['basis']), "value": float(row['equity']), "roi_pct": float(row['roi_pct']),
-        "comp_value": float(row['comp_equity'])
+        "div_accum": float(row['dividend_accum'])
     } for dt, row in monthly_df.iterrows()]
-
-    # Add Purchase Log (last 100 trades for visibility)
-    metrics["purchase_log"] = [{
-        "date": t.date.strftime("%Y-%m-%d"),
-        "symbol": t.symbol,
-        "name": final_names.get(t.symbol, t.symbol),
-        "price": t.price,
-        "shares": t.shares,
-        "amount": t.amount
-    } for t in state.trades[-100:]] # Show latest 100 trades
     
-    # 7. Write Results
-    print("Writing results bundle...")
-    context = RunContext(plan=plan, data_source=args.data_source, symbols=final_symbols,
-                         date_range=f"{dates[0].date()} to {dates[-1].date()}", commit_hash="local")
-    write_results_bundle(root_dir=Path(args.results_dir), context=context, summary=metrics,
-                         trades=pd.DataFrame([asdict(t) for t in state.trades]), equity_curve=curve_df)
-    
-    print(f"DCA Backtest Complete. Final Value: {curr_sym}{metrics['final_value']:,.2f} ({metrics['total_return']:.2%})")
+    write_results_bundle(Path(args.results_dir), RunContext(plan=plan, data_source=args.data_source, symbols=final_symbols,
+                         date_range=f"{union_idx[0].date()} to {union_idx[-1].date()}", commit_hash="local"),
+                         metrics, pd.DataFrame([asdict(t) for t in state.trades]), curve_df)
+    print(f"DCA Backtest Complete. Final Value: {curr_sym}{metrics['final_value']:,.2f}")
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

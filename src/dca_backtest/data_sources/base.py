@@ -19,6 +19,14 @@ class DataSource(Protocol):
     ) -> dict[str, pd.DataFrame]:
         ...
 
+    def load_dividends(
+        self,
+        symbols: tuple[str, ...],
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> dict[str, pd.Series]:
+        ...
+
 
 def normalize_symbol_frame(raw: pd.DataFrame) -> pd.DataFrame:
     if isinstance(raw.columns, pd.MultiIndex):
@@ -35,6 +43,10 @@ def normalize_symbol_frame(raw: pd.DataFrame) -> pd.DataFrame:
             "Volume": "volume",
         }
     )
+    # Ensure date is a column before set_index
+    if "date" not in renamed.columns and isinstance(renamed.index, pd.DatetimeIndex):
+        renamed = renamed.reset_index().rename(columns={"index": "date", "Date": "date"})
+
     frame = renamed.loc[:, ["date", *[column for column in REQUIRED_OHLCV_COLUMNS if column in renamed.columns]]].copy()
     frame["date"] = pd.to_datetime(frame["date"], utc=False)
     frame = frame.set_index("date").sort_index()
