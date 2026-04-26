@@ -8,7 +8,7 @@ __pycache__/
 .DS_Store
 
 # Data and Results (keep directories but ignore content)
-data/csv/*.csv
+data/csv/*
 data/parquet/*.parquet
 results/*/
 !results/index.html
